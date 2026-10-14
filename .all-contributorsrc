@@ -245,6 +245,53 @@
         "code",
         "bug"
       ]
+    },
+    {
+      "login": "Whadup",
+      "name": "Lukas Pfahler",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2308119?v=4",
+      "profile": "https://lukaspfahler.de",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "RajendraP",
+      "name": "Rajendra Pandey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/8928165?v=4",
+      "profile": "https://github.com/RajendraP",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "undefined-moe",
+      "name": "undefined",
+      "avatar_url": "https://avatars.githubusercontent.com/u/29992205?v=4",
+      "profile": "https://undefined.moe/",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "Jellyfrog",
+      "name": "Jellyfrog",
+      "avatar_url": "https://avatars.githubusercontent.com/u/759887?v=4",
+      "profile": "https://github.com/Jellyfrog",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    },
+    {
+      "login": "npwolf",
+      "name": "Nelson Wolf",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2318938?v=4",
+      "profile": "http://www.wolfplusplus.com/",
+      "contributions": [
+        "code",
+        "test"
+      ]
     }
   ],
   "contributorsPerLine": 7,

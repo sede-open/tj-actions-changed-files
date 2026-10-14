@@ -32,11 +32,13 @@ export const normalizeSeparators = (p: string): string => {
 
     // Remove redundant slashes
     const isUnc = /^\\\\+[^\\]/.test(p) // e.g. \\hello
-    return (isUnc ? '\\' : '') + p.replace(/\\\\+/g, '\\') // preserve leading \\ for UNC
+    p = (isUnc ? '\\' : '') + p.replace(/\\\\+/g, '\\') // preserve leading \\ for UNC
+  } else {
+    // Remove redundant slashes on Linux/macOS
+    p = p.replace(/\/\/+/g, '/')
   }
 
-  // Remove redundant slashes
-  return p.replace(/\/\/+/g, '/')
+  return p
 }
 
 /**
@@ -148,6 +150,69 @@ export const exists = async (filePath: string): Promise<boolean> => {
   } catch {
     return false
   }
+}
+
+/**
+ * Checks if a file is a symlink on disk
+ * @param cwd - working directory
+ * @param filePath - path to check
+ * @returns file is a symlink
+ */
+export const isSymlinkOnDisk = async ({
+  cwd,
+  filePath
+}: {
+  cwd: string
+  filePath: string
+}): Promise<boolean> => {
+  try {
+    const stat = await fs.lstat(path.join(cwd, filePath))
+    return stat.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Checks if a file is a symlink in a git tree
+ * @param cwd - working directory
+ * @param sha - commit sha
+ * @param filePath - path to check
+ * @returns file is a symlink
+ */
+export const isSymlinkInGitTree = async ({
+  cwd,
+  sha,
+  filePath
+}: {
+  cwd: string
+  sha: string
+  filePath: string
+}): Promise<boolean> => {
+  if (!sha) {
+    return false
+  }
+  const {stdout, exitCode} = await exec.getExecOutput(
+    'git',
+    ['ls-tree', '-r', sha, '--', filePath],
+    {
+      cwd,
+      ignoreReturnCode: true,
+      silent: !core.isDebug()
+    }
+  )
+
+  if (exitCode !== 0) {
+    return false
+  }
+
+  const line = stdout.split('\n').find(Boolean)
+  if (!line) {
+    return false
+  }
+
+  const [mode] = line.split(/\s+/)
+  return mode === '120000'
 }
 
 /**
@@ -680,25 +745,21 @@ export const isInsideWorkTree = async ({
     }
   )
 
-  if (stdout.trim() !== 'true') {
-    core.warning(
-      `The current working directory is not inside a git repository: ${cwd}`
-    )
-  }
-
   return stdout.trim() === 'true'
 }
 
 export const getRemoteBranchHeadSha = async ({
   cwd,
-  branch
+  branch,
+  remoteName
 }: {
   cwd: string
   branch: string
+  remoteName: string
 }): Promise<string> => {
   const {stdout} = await exec.getExecOutput(
     'git',
-    ['rev-parse', `origin/${branch}`],
+    ['rev-parse', `${remoteName}/${branch}`],
     {
       cwd,
       silent: !core.isDebug()
@@ -821,53 +882,127 @@ export const cleanShaInput = async ({
 
   if (exitCode !== 0) {
     const octokit = github.getOctokit(token)
-    // If it's not a valid commit sha, assume it's a branch name and get the HEAD sha
-    const {data: refData} = await octokit.rest.git.getRef({
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo,
-      ref: `heads/${sha}`
+    const owner = github.context.repo.owner
+    const repo = github.context.repo.repo
+    const isNotFoundError = (error: unknown): boolean =>
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (error as {status?: number}).status === 404
+    // If it's not a valid commit sha, assume it's a ref name first.
+    try {
+      const {data: refData} = await octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${sha}`
+      })
+
+      return refData.object.sha
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    try {
+      const {data: refData} = await octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `tags/${sha}`
+      })
+
+      return refData.object.sha
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    const {data: commitData} = await octokit.rest.git.getCommit({
+      owner,
+      repo,
+      commit_sha: sha
     })
 
-    return refData.object.sha
+    return commitData.sha
   }
 
   return stdout.trim()
 }
+
 export const getPreviousGitTag = async ({
-  cwd
+  cwd,
+  tagsPattern,
+  currentBranch,
+  tagsIgnorePattern
 }: {
   cwd: string
+  tagsPattern: string
+  currentBranch: string
+  tagsIgnorePattern?: string
 }): Promise<{tag: string; sha: string}> => {
+  const ignorePatterns: string[] = []
+  let currentShaDate: Date | null = null
+
   const {stdout} = await exec.getExecOutput(
     'git',
-    ['tag', '--sort=-creatordate'],
+    [
+      'tag',
+      '--sort=-creatordate',
+      '--format=%(refname:short)|%(objectname)|%(creatordate:iso)'
+    ],
     {
       cwd,
       silent: !core.isDebug()
     }
   )
 
-  const tags = stdout.trim().split('\n')
-
-  if (tags.length < 2) {
-    core.warning('No previous tag found')
-    return {tag: '', sha: ''}
+  if (tagsIgnorePattern) {
+    ignorePatterns.push(tagsIgnorePattern)
   }
 
-  const previousTag = tags[1]
-
-  const {stdout: stdout2} = await exec.getExecOutput(
-    'git',
-    ['rev-parse', previousTag],
-    {
-      cwd,
-      silent: !core.isDebug()
+  if (currentBranch) {
+    ignorePatterns.push(currentBranch)
+    try {
+      const {stdout: currentShaDateOutput} = await exec.getExecOutput(
+        'git',
+        ['show', '-s', '--format=%ai', currentBranch],
+        {
+          cwd,
+          silent: !core.isDebug()
+        }
+      )
+      currentShaDate = new Date(currentShaDateOutput.trim())
+    } catch (error) {
+      // Handle the case where the current branch doesn't exist
+      // This might happen in detached head state
+      core.warning(`Failed to get date for current branch ${currentBranch}`)
     }
-  )
+  }
 
-  const sha = stdout2.trim()
+  const previousTag: {tag: string; sha: string} = {tag: '', sha: ''}
 
-  return {tag: previousTag, sha}
+  const tags = stdout.trim().split('\n')
+  for (const tagData of tags) {
+    const [tag, sha, dateString] = tagData.split('|')
+    if (!mm.isMatch(tag, tagsPattern) || mm.isMatch(tag, ignorePatterns)) {
+      continue
+    }
+    const date = new Date(dateString)
+    if (currentShaDate && date >= currentShaDate) {
+      continue
+    }
+    // Found a suitable tag, no need to continue
+    previousTag.tag = tag
+    previousTag.sha = sha
+    break
+  }
+
+  if (!previousTag.tag) {
+    core.warning('No previous tag found')
+  }
+
+  return previousTag
 }
 
 export const canDiffCommits = async ({
@@ -1221,15 +1356,10 @@ export const getYamlFilePatterns = async ({
       const newFilePatterns = await getYamlFilePatternsFromContents({filePath})
       for (const key in newFilePatterns) {
         if (key in filePatterns) {
-          core.warning(
-            `files_yaml_from_source_file: Duplicated key ${key} detected in ${filePath}, the ${filePatterns[key]} will be overwritten by ${newFilePatterns[key]}.`
-          )
+          filePatterns[key] = [...filePatterns[key], ...newFilePatterns[key]]
+        } else {
+          filePatterns[key] = newFilePatterns[key]
         }
-      }
-
-      filePatterns = {
-        ...filePatterns,
-        ...newFilePatterns
       }
     }
   }
@@ -1242,9 +1372,12 @@ export const getYamlFilePatterns = async ({
 
     for (const key in newIgnoreFilePatterns) {
       if (key in filePatterns) {
-        core.warning(
-          `files_ignore_yaml: Duplicated key ${key} detected, the ${filePatterns[key]} will be overwritten by ${newIgnoreFilePatterns[key]}.`
-        )
+        filePatterns[key] = [
+          ...filePatterns[key],
+          ...newIgnoreFilePatterns[key]
+        ]
+      } else {
+        filePatterns[key] = newIgnoreFilePatterns[key]
       }
     }
   }
@@ -1268,15 +1401,13 @@ export const getYamlFilePatterns = async ({
 
       for (const key in newIgnoreFilePatterns) {
         if (key in filePatterns) {
-          core.warning(
-            `files_ignore_yaml_from_source_file: Duplicated key ${key} detected in ${filePath}, the ${filePatterns[key]} will be overwritten by ${newIgnoreFilePatterns[key]}.`
-          )
+          filePatterns[key] = [
+            ...filePatterns[key],
+            ...newIgnoreFilePatterns[key]
+          ]
+        } else {
+          filePatterns[key] = newIgnoreFilePatterns[key]
         }
-      }
-
-      filePatterns = {
-        ...filePatterns,
-        ...newIgnoreFilePatterns
       }
     }
   }
@@ -1417,7 +1548,7 @@ export const recoverDeletedFiles = async ({
   deletedFiles,
   recoverPatterns,
   diffResult,
-  hasSubmodule,
+  diffSubmodule,
   submodulePaths
 }: {
   inputs: Inputs
@@ -1425,7 +1556,7 @@ export const recoverDeletedFiles = async ({
   deletedFiles: string[]
   recoverPatterns: string[]
   diffResult: DiffResult
-  hasSubmodule: boolean
+  diffSubmodule: boolean
   submodulePaths: string[]
 }): Promise<void> => {
   let recoverableDeletedFiles = deletedFiles
@@ -1455,7 +1586,7 @@ export const recoverDeletedFiles = async ({
 
     const submodulePath = submodulePaths.find(p => deletedFile.startsWith(p))
 
-    if (hasSubmodule && submodulePath) {
+    if (diffSubmodule && submodulePath) {
       const submoduleShaResult = await gitSubmoduleDiffSHA({
         cwd: workingDirectory,
         parentSha1: diffResult.previousSha,

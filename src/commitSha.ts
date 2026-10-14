@@ -84,17 +84,30 @@ export interface DiffResult {
   targetBranch: string
   diff: string
   initialCommit?: boolean
+  sameSha?: boolean
 }
 
-export const getSHAForNonPullRequestEvent = async (
-  inputs: Inputs,
-  env: Env,
-  workingDirectory: string,
-  isShallow: boolean,
-  hasSubmodule: boolean,
-  gitFetchExtraArgs: string[],
+interface SHAForNonPullRequestEvent {
+  inputs: Inputs
+  env: Env
+  workingDirectory: string
+  isShallow: boolean
+  diffSubmodule: boolean
+  gitFetchExtraArgs: string[]
   isTag: boolean
-): Promise<DiffResult> => {
+  remoteName: string
+}
+
+export const getSHAForNonPullRequestEvent = async ({
+  inputs,
+  env,
+  workingDirectory,
+  isShallow,
+  diffSubmodule,
+  gitFetchExtraArgs,
+  isTag,
+  remoteName
+}: SHAForNonPullRequestEvent): Promise<DiffResult> => {
   let targetBranch = env.GITHUB_REF_NAME
   let currentBranch = targetBranch
   let initialCommit = false
@@ -122,8 +135,8 @@ export const getSHAForNonPullRequestEvent = async (
             '-u',
             '--progress',
             `--deepen=${inputs.fetchDepth}`,
-            'origin',
-            `+refs/heads/${sourceBranch}:refs/remotes/origin/${sourceBranch}`
+            remoteName,
+            `+refs/heads/${sourceBranch}:refs/remotes/${remoteName}/${sourceBranch}`
           ]
         })
       } else {
@@ -134,13 +147,13 @@ export const getSHAForNonPullRequestEvent = async (
             '-u',
             '--progress',
             `--deepen=${inputs.fetchDepth}`,
-            'origin',
-            `+refs/heads/${targetBranch}:refs/remotes/origin/${targetBranch}`
+            remoteName,
+            `+refs/heads/${targetBranch}:refs/remotes/${remoteName}/${targetBranch}`
           ]
         })
       }
 
-      if (hasSubmodule) {
+      if (diffSubmodule) {
         await gitFetchSubmodules({
           cwd: workingDirectory,
           args: [
@@ -152,7 +165,7 @@ export const getSHAForNonPullRequestEvent = async (
         })
       }
     } else {
-      if (hasSubmodule && inputs.fetchAdditionalSubmoduleHistory) {
+      if (diffSubmodule && inputs.fetchAdditionalSubmoduleHistory) {
         await gitFetchSubmodules({
           cwd: workingDirectory,
           args: [
@@ -186,6 +199,19 @@ export const getSHAForNonPullRequestEvent = async (
 
   if (inputs.baseSha && inputs.sha && currentBranch && targetBranch) {
     if (previousSha === currentSha) {
+      if (inputs.skipSameSha) {
+        core.info(
+          `Skipping diff because previous sha ${previousSha} is equivalent to the current sha ${currentSha}.`
+        )
+        return {
+          previousSha,
+          currentSha,
+          currentBranch,
+          targetBranch,
+          diff,
+          sameSha: true
+        }
+      }
       core.error(
         `Similar commit hashes detected: previous sha: ${previousSha} is equivalent to the current sha: ${currentSha}.`
       )
@@ -228,7 +254,12 @@ export const getSHAForNonPullRequestEvent = async (
       }
     } else if (isTag) {
       core.debug('Getting previous SHA for tag...')
-      const {sha, tag} = await getPreviousGitTag({cwd: workingDirectory})
+      const {sha, tag} = await getPreviousGitTag({
+        cwd: workingDirectory,
+        tagsPattern: inputs.tagsPattern,
+        tagsIgnorePattern: inputs.tagsIgnorePattern,
+        currentBranch
+      })
       previousSha = sha
       targetBranch = tag
     } else {
@@ -288,6 +319,19 @@ export const getSHAForNonPullRequestEvent = async (
   core.debug(`Current branch: ${currentBranch}`)
 
   if (!initialCommit && previousSha === currentSha) {
+    if (inputs.skipSameSha) {
+      core.info(
+        `Skipping diff because previous sha ${previousSha} is equivalent to the current sha ${currentSha}.`
+      )
+      return {
+        previousSha,
+        currentSha,
+        currentBranch,
+        targetBranch,
+        diff,
+        sameSha: true
+      }
+    }
     core.error(
       `Similar commit hashes detected: previous sha: ${previousSha} is equivalent to the current sha: ${currentSha}.`
     )
@@ -307,14 +351,23 @@ export const getSHAForNonPullRequestEvent = async (
   }
 }
 
-export const getSHAForPullRequestEvent = async (
-  inputs: Inputs,
-  env: Env,
-  workingDirectory: string,
-  isShallow: boolean,
-  hasSubmodule: boolean,
+interface SHAForPullRequestEvent {
+  inputs: Inputs
+  workingDirectory: string
+  isShallow: boolean
+  diffSubmodule: boolean
   gitFetchExtraArgs: string[]
-): Promise<DiffResult> => {
+  remoteName: string
+}
+
+export const getSHAForPullRequestEvent = async ({
+  inputs,
+  workingDirectory,
+  isShallow,
+  diffSubmodule,
+  gitFetchExtraArgs,
+  remoteName
+}: SHAForPullRequestEvent): Promise<DiffResult> => {
   let targetBranch = github.context.payload.pull_request?.base?.ref
   const currentBranch = github.context.payload.pull_request?.head?.ref
   if (inputs.sinceLastRemoteCommit) {
@@ -330,7 +383,7 @@ export const getSHAForPullRequestEvent = async (
           ...gitFetchExtraArgs,
           '-u',
           '--progress',
-          'origin',
+          remoteName,
           `pull/${github.context.payload.pull_request?.number}/head:${currentBranch}`
         ]
       })
@@ -343,8 +396,8 @@ export const getSHAForPullRequestEvent = async (
             '-u',
             '--progress',
             `--deepen=${inputs.fetchDepth}`,
-            'origin',
-            `+refs/heads/${currentBranch}*:refs/remotes/origin/${currentBranch}*`
+            remoteName,
+            `+refs/heads/${currentBranch}*:refs/remotes/${remoteName}/${currentBranch}*`
           ]
         })
       }
@@ -354,35 +407,32 @@ export const getSHAForPullRequestEvent = async (
           'Failed to fetch pull request branch. Please ensure "persist-credentials" is set to "true" when checking out the repository. See: https://github.com/actions/checkout#usage'
         )
       }
+      core.debug('Fetching target branch...')
+      await gitFetch({
+        cwd: workingDirectory,
+        args: [
+          ...gitFetchExtraArgs,
+          '-u',
+          '--progress',
+          `--deepen=${inputs.fetchDepth}`,
+          remoteName,
+          `+refs/heads/${github.context.payload.pull_request?.base?.ref}:refs/remotes/${remoteName}/${github.context.payload.pull_request?.base?.ref}`
+        ]
+      })
 
-      if (!inputs.sinceLastRemoteCommit) {
-        core.debug('Fetching target branch...')
-        await gitFetch({
+      if (diffSubmodule) {
+        await gitFetchSubmodules({
           cwd: workingDirectory,
           args: [
             ...gitFetchExtraArgs,
             '-u',
             '--progress',
-            `--deepen=${inputs.fetchDepth}`,
-            'origin',
-            `+refs/heads/${targetBranch}:refs/remotes/origin/${targetBranch}`
+            `--deepen=${inputs.fetchDepth}`
           ]
         })
-
-        if (hasSubmodule) {
-          await gitFetchSubmodules({
-            cwd: workingDirectory,
-            args: [
-              ...gitFetchExtraArgs,
-              '-u',
-              '--progress',
-              `--deepen=${inputs.fetchDepth}`
-            ]
-          })
-        }
       }
     } else {
-      if (hasSubmodule && inputs.fetchAdditionalSubmoduleHistory) {
+      if (diffSubmodule && inputs.fetchAdditionalSubmoduleHistory) {
         await gitFetchSubmodules({
           cwd: workingDirectory,
           args: [
@@ -407,6 +457,19 @@ export const getSHAForPullRequestEvent = async (
 
   if (inputs.baseSha && inputs.sha && currentBranch && targetBranch) {
     if (previousSha === currentSha) {
+      if (inputs.skipSameSha) {
+        core.info(
+          `Skipping diff because previous sha ${previousSha} is equivalent to the current sha ${currentSha}.`
+        )
+        return {
+          previousSha,
+          currentSha,
+          currentBranch,
+          targetBranch,
+          diff,
+          sameSha: true
+        }
+      }
       core.error(
         `Similar commit hashes detected: previous sha: ${previousSha} is equivalent to the current sha: ${currentSha}.`
       )
@@ -427,10 +490,7 @@ export const getSHAForPullRequestEvent = async (
     }
   }
 
-  if (
-    !github.context.payload.pull_request?.base?.ref ||
-    github.context.payload.pull_request?.head?.repo?.fork === true
-  ) {
+  if (!github.context.payload.pull_request?.base?.ref) {
     diff = '..'
   }
 
@@ -487,17 +547,14 @@ export const getSHAForPullRequestEvent = async (
         }
       }
     } else {
-      if (github.context.payload.action === 'closed') {
-        previousSha = github.context.payload.pull_request?.base?.sha
-      } else {
+      previousSha = github.context.payload.pull_request?.base?.sha
+
+      if (!previousSha) {
         previousSha = await getRemoteBranchHeadSha({
           cwd: workingDirectory,
+          remoteName,
           branch: targetBranch
         })
-
-        if (!previousSha) {
-          previousSha = github.context.payload.pull_request?.base?.sha
-        }
       }
 
       if (isShallow) {
@@ -513,7 +570,11 @@ export const getSHAForPullRequestEvent = async (
             'Merge base is not in the local history, fetching remote target branch...'
           )
 
-          for (let i = 1; i <= 10; i++) {
+          for (
+            let i = 1;
+            i <= (inputs.fetchMissingHistoryMaxRetries || 10);
+            i++
+          ) {
             await gitFetch({
               cwd: workingDirectory,
               args: [
@@ -521,8 +582,8 @@ export const getSHAForPullRequestEvent = async (
                 '-u',
                 '--progress',
                 `--deepen=${inputs.fetchDepth}`,
-                'origin',
-                `+refs/heads/${targetBranch}:refs/remotes/origin/${targetBranch}`
+                remoteName,
+                `+refs/heads/${targetBranch}:refs/remotes/${remoteName}/${targetBranch}`
               ]
             })
 
@@ -540,7 +601,9 @@ export const getSHAForPullRequestEvent = async (
             core.info(
               'Merge base is not in the local history, fetching remote target branch again...'
             )
-            core.info(`Attempt ${i}/10`)
+            core.info(
+              `Attempt ${i}/${inputs.fetchMissingHistoryMaxRetries || 10}`
+            )
           }
         }
       }
@@ -585,6 +648,19 @@ export const getSHAForPullRequestEvent = async (
   }
 
   if (previousSha === currentSha) {
+    if (inputs.skipSameSha) {
+      core.info(
+        `Skipping diff because previous sha ${previousSha} is equivalent to the current sha ${currentSha}.`
+      )
+      return {
+        previousSha,
+        currentSha,
+        currentBranch,
+        targetBranch,
+        diff,
+        sameSha: true
+      }
+    }
     core.error(
       `Similar commit hashes detected: previous sha: ${previousSha} is equivalent to the current sha: ${currentSha}.`
     )

@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import type {RestEndpointMethodTypes} from '@octokit/rest'
 import flatten from 'lodash/flatten'
+import convertPath from '@stdlib/utils-convert-path'
 import mm from 'micromatch'
 import * as path from 'path'
 import {setOutputsAndGetModifiedAndChangedFilesStatus} from './changedFilesOutput'
@@ -15,6 +16,8 @@ import {
   getFilteredChangedFiles,
   gitRenamedFiles,
   gitSubmoduleDiffSHA,
+  isSymlinkInGitTree,
+  isSymlinkOnDisk,
   isWindows,
   jsonOutput,
   setArrayOutput
@@ -88,21 +91,17 @@ export const processChangedFiles = async ({
       core.endGroup()
     }
 
-    if (modifiedKeys.length > 0) {
-      await setArrayOutput({
-        key: 'modified_keys',
-        inputs,
-        value: modifiedKeys
-      })
-    }
+    await setArrayOutput({
+      key: 'modified_keys',
+      inputs,
+      value: modifiedKeys
+    })
 
-    if (changedKeys.length > 0) {
-      await setArrayOutput({
-        key: 'changed_keys',
-        inputs,
-        value: changedKeys
-      })
-    }
+    await setArrayOutput({
+      key: 'changed_keys',
+      inputs,
+      value: changedKeys
+    })
   }
 
   if (filePatterns.length === 0 && Object.keys(yamlFilePatterns).length === 0) {
@@ -121,13 +120,13 @@ export const processChangedFiles = async ({
 export const getRenamedFiles = async ({
   inputs,
   workingDirectory,
-  hasSubmodule,
+  diffSubmodule,
   diffResult,
   submodulePaths
 }: {
   inputs: Inputs
   workingDirectory: string
-  hasSubmodule: boolean
+  diffSubmodule: boolean
   diffResult: DiffResult
   submodulePaths: string[]
 }): Promise<{paths: string; count: string}> => {
@@ -139,7 +138,7 @@ export const getRenamedFiles = async ({
     oldNewSeparator: inputs.oldNewSeparator
   })
 
-  if (hasSubmodule) {
+  if (diffSubmodule) {
     for (const submodulePath of submodulePaths) {
       const submoduleShaResult = await gitSubmoduleDiffSHA({
         cwd: workingDirectory,
@@ -217,22 +216,24 @@ export type ChangedFiles = {
 
 export const getAllDiffFiles = async ({
   workingDirectory,
-  hasSubmodule,
+  diffSubmodule,
   diffResult,
   submodulePaths,
   outputRenamedFilesAsDeletedAndAdded,
   fetchAdditionalSubmoduleHistory,
   failOnInitialDiffError,
-  failOnSubmoduleDiffError
+  failOnSubmoduleDiffError,
+  submoduleShas
 }: {
   workingDirectory: string
-  hasSubmodule: boolean
+  diffSubmodule: boolean
   diffResult: DiffResult
   submodulePaths: string[]
   outputRenamedFilesAsDeletedAndAdded: boolean
   fetchAdditionalSubmoduleHistory: boolean
   failOnInitialDiffError: boolean
   failOnSubmoduleDiffError: boolean
+  submoduleShas?: Record<string, {previousSha?: string; currentSha?: string}>
 }): Promise<ChangedFiles> => {
   const files = await getAllChangedFiles({
     cwd: workingDirectory,
@@ -243,7 +244,7 @@ export const getAllDiffFiles = async ({
     failOnInitialDiffError
   })
 
-  if (hasSubmodule) {
+  if (diffSubmodule) {
     for (const submodulePath of submodulePaths) {
       const submoduleShaResult = await gitSubmoduleDiffSHA({
         cwd: workingDirectory,
@@ -259,6 +260,9 @@ export const getAllDiffFiles = async ({
       )
 
       if (submoduleShaResult.currentSha && submoduleShaResult.previousSha) {
+        if (submoduleShas) {
+          submoduleShas[submodulePath] = submoduleShaResult
+        }
         let diff = '...'
 
         if (
@@ -301,6 +305,139 @@ export const getAllDiffFiles = async ({
   }
 
   return files
+}
+
+export const filterSymlinksFromChangedFiles = async ({
+  changedFiles,
+  workingDirectory,
+  diffResult,
+  submodulePaths,
+  submoduleShas
+}: {
+  changedFiles: ChangedFiles
+  workingDirectory: string
+  diffResult: DiffResult
+  submodulePaths: string[]
+  submoduleShas?: Record<string, {previousSha?: string; currentSha?: string}>
+}): Promise<ChangedFiles> => {
+  const filtered: ChangedFiles = {
+    [ChangeTypeEnum.Added]: [],
+    [ChangeTypeEnum.Copied]: [],
+    [ChangeTypeEnum.Deleted]: [],
+    [ChangeTypeEnum.Modified]: [],
+    [ChangeTypeEnum.Renamed]: [],
+    [ChangeTypeEnum.TypeChanged]: [],
+    [ChangeTypeEnum.Unmerged]: [],
+    [ChangeTypeEnum.Unknown]: []
+  }
+
+  const cache = new Map<string, boolean>()
+  const diskCache = new Map<string, boolean>()
+
+  const getSubmoduleContext = (
+    filePath: string
+  ): {
+    cwd: string
+    relativePath: string
+    currentSha: string
+    previousSha: string
+    isSubmoduleRoot: boolean
+  } => {
+    const submodulePath = submodulePaths.find(p =>
+      filePath.startsWith(`${p}${path.sep}`)
+    )
+    if (!submodulePath) {
+      return {
+        cwd: workingDirectory,
+        relativePath: filePath,
+        currentSha: diffResult.currentSha,
+        previousSha: diffResult.previousSha,
+        isSubmoduleRoot: false
+      }
+    }
+
+    if (filePath === submodulePath) {
+      return {
+        cwd: workingDirectory,
+        relativePath: filePath,
+        currentSha: diffResult.currentSha,
+        previousSha: diffResult.previousSha,
+        isSubmoduleRoot: true
+      }
+    }
+
+    const submoduleWorkingDirectory = path.join(workingDirectory, submodulePath)
+    const relativePath = filePath.substring(submodulePath.length + 1)
+    const submoduleSha = submoduleShas?.[submodulePath]
+
+    return {
+      cwd: submoduleWorkingDirectory,
+      relativePath,
+      currentSha: submoduleSha?.currentSha || diffResult.currentSha,
+      previousSha: submoduleSha?.previousSha || diffResult.previousSha,
+      isSubmoduleRoot: false
+    }
+  }
+
+  const isSymlinkCached = async ({
+    cwd,
+    filePath,
+    sha,
+    preferDisk
+  }: {
+    cwd: string
+    filePath: string
+    sha: string
+    preferDisk: boolean
+  }): Promise<boolean> => {
+    if (preferDisk) {
+      const diskKey = `${cwd}|disk|${filePath}`
+      const cachedDisk = diskCache.get(diskKey)
+      if (cachedDisk !== undefined) {
+        return cachedDisk
+      }
+      const diskResult = await isSymlinkOnDisk({cwd, filePath})
+      diskCache.set(diskKey, diskResult)
+      if (diskResult) {
+        return true
+      }
+    }
+
+    const treeKey = `${cwd}|${sha}|${filePath}`
+    const cachedTree = cache.get(treeKey)
+    if (cachedTree !== undefined) {
+      return cachedTree
+    }
+    const treeResult = await isSymlinkInGitTree({cwd, sha, filePath})
+    cache.set(treeKey, treeResult)
+    return treeResult
+  }
+
+  for (const changeType of Object.keys(changedFiles) as ChangeTypeEnum[]) {
+    const files = changedFiles[changeType] || []
+    for (const filePath of files) {
+      const context = getSubmoduleContext(filePath)
+      if (context.isSubmoduleRoot) {
+        filtered[changeType].push(filePath)
+        continue
+      }
+
+      const isDeleted = changeType === ChangeTypeEnum.Deleted
+      const sha = isDeleted ? context.previousSha : context.currentSha
+      const isSymlink = await isSymlinkCached({
+        cwd: context.cwd,
+        filePath: context.relativePath,
+        sha,
+        preferDisk: !isDeleted
+      })
+
+      if (!isSymlink) {
+        filtered[changeType].push(filePath)
+      }
+    }
+  }
+
+  return filtered
 }
 
 function* getFilePaths({
@@ -355,7 +492,11 @@ function* getChangeTypeFilesGenerator({
       filePaths,
       dirNamesIncludeFilePatterns
     })) {
-      yield filePath
+      if (isWindows() && inputs.usePosixPathSeparator) {
+        yield convertPath(filePath, 'mixed')
+      } else {
+        yield filePath
+      }
     }
   }
 }
@@ -402,7 +543,11 @@ function* getAllChangeTypeFilesGenerator({
     filePaths,
     dirNamesIncludeFilePatterns
   })) {
-    yield filePath
+    if (isWindows() && inputs.usePosixPathSeparator) {
+      yield convertPath(filePath, 'mixed')
+    } else {
+      yield filePath
+    }
   }
 }
 
@@ -423,6 +568,58 @@ export const getAllChangeTypeFiles = async ({
     paths,
     count: files.length.toString()
   }
+}
+
+const NULL_SHA = '0000000000000000000000000000000000000000'
+
+/**
+ * Resolves the GitHub API endpoint options for fetching changed files based on
+ * the current event type. Returns null for push events with a null base SHA
+ * (force push / initial branch push) where comparison is not possible.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getApiEndpointOptions = (octokit: any): any | null => {
+  const {owner, repo} = github.context.repo
+  const perPage = {per_page: 100}
+
+  if (github.context.payload.pull_request?.number) {
+    return octokit.rest.pulls.listFiles.endpoint.merge({
+      owner,
+      repo,
+      pull_number: github.context.payload.pull_request.number,
+      ...perPage
+    })
+  }
+
+  if (github.context.eventName === 'push') {
+    if (
+      github.context.payload.before === NULL_SHA ||
+      !github.context.payload.before
+    ) {
+      return null
+    }
+    return octokit.rest.repos.compareCommits.endpoint.merge({
+      owner,
+      repo,
+      base: github.context.payload.before,
+      head: github.context.payload.after,
+      ...perPage
+    })
+  }
+
+  if (github.context.eventName === 'merge_group') {
+    return octokit.rest.repos.compareCommits.endpoint.merge({
+      owner,
+      repo,
+      base: github.context.payload.merge_group?.base_sha,
+      head: github.context.payload.merge_group?.head_sha,
+      ...perPage
+    })
+  }
+
+  throw new Error(
+    `Event "${github.context.eventName}" is not supported when using GitHub's REST API. Supported events: pull_request*, push, merge_group.`
+  )
 }
 
 export const getChangedFilesFromGithubAPI = async ({
@@ -446,13 +643,17 @@ export const getChangedFilesFromGithubAPI = async ({
 
   core.info('Getting changed files from GitHub API...')
 
-  const options = octokit.rest.pulls.listFiles.endpoint.merge({
-    owner: github.context.repo.owner,
-    repo: github.context.repo.repo,
-    pull_number: github.context.payload.pull_request?.number,
-    per_page: 100
-  })
+  const options = getApiEndpointOptions(octokit)
+  if (options === null) {
+    core.warning(
+      'Unable to determine changed files for initial push or force push with no prior commit. Returning empty results.'
+    )
+    return changedFiles
+  }
 
+  // Note: pulls.listFiles and repos.compareCommits both return files with the
+  // same shape (filename, status, previous_filename), so we reuse the listFiles
+  // type for both endpoints.
   const paginatedResponse =
     await octokit.paginate<
       RestEndpointMethodTypes['pulls']['listFiles']['response']['data'][0]
@@ -475,7 +676,7 @@ export const getChangedFilesFromGithubAPI = async ({
 
     if (changeType === ChangeTypeEnum.Renamed) {
       if (inputs.outputRenamedFilesAsDeletedAndAdded) {
-        changedFiles[ChangeTypeEnum.Deleted].push(item.filename)
+        changedFiles[ChangeTypeEnum.Deleted].push(item.previous_filename || '')
         changedFiles[ChangeTypeEnum.Added].push(item.filename)
       } else {
         changedFiles[ChangeTypeEnum.Renamed].push(item.filename)

@@ -1,10 +1,12 @@
 import * as core from '@actions/core'
+import * as exec from '@actions/exec'
 import {ChangeTypeEnum} from '../changedFiles'
 import {Inputs} from '../inputs'
 import {
   getDirname,
   getDirnameMaxDepth,
   getFilteredChangedFiles,
+  getPreviousGitTag,
   normalizeSeparators,
   warnUnsupportedRESTAPIInputs
 } from '../utils'
@@ -635,7 +637,14 @@ describe('utils test', () => {
         failOnInitialDiffError: false,
         failOnSubmoduleDiffError: false,
         negationPatternsFirst: false,
-        useRestApi: false
+        useRestApi: false,
+        excludeSubmodules: false,
+        excludeSymlinks: false,
+        skipSameSha: false,
+        fetchMissingHistoryMaxRetries: 20,
+        usePosixPathSeparator: false,
+        tagsPattern: '*',
+        tagsIgnorePattern: ''
       }
 
       const coreWarningSpy = jest.spyOn(core, 'warning')
@@ -649,6 +658,106 @@ describe('utils test', () => {
       )
 
       expect(coreWarningSpy).toHaveBeenCalledTimes(1)
+    })
+  })
+  describe('getPreviousGitTag', () => {
+    // Check if the environment variable GITHUB_REPOSITORY_OWNER is 'tj-actions'
+    const shouldSkip = !!process.env.GITHUB_EVENT_PULL_REQUEST_HEAD_REPO_FORK
+    // Function returns the second-latest tag and its SHA
+    it('should return the second latest tag and its SHA when multiple tags are present', async () => {
+      if (shouldSkip) {
+        return
+      }
+      const result = await getPreviousGitTag({
+        cwd: '.',
+        tagsPattern: '*',
+        tagsIgnorePattern: '',
+        currentBranch: 'v1.0.1'
+      })
+      expect(result).toEqual({
+        tag: 'v1.0.0',
+        sha: 'f0751de6af436d4e79016e2041cf6400e0833653'
+      })
+    })
+    // Tags are filtered by a specified pattern when 'tagsPattern' is provided
+    it('should filter tags by the specified pattern', async () => {
+      if (shouldSkip) {
+        return
+      }
+      const result = await getPreviousGitTag({
+        cwd: '.',
+        tagsPattern: 'v1.*',
+        tagsIgnorePattern: '',
+        currentBranch: 'v1.0.1'
+      })
+      expect(result).toEqual({
+        tag: 'v1.0.0',
+        sha: 'f0751de6af436d4e79016e2041cf6400e0833653'
+      })
+    })
+    // Tags are excluded by a specified ignore pattern when 'tagsIgnorePattern' is provided
+    it('should exclude tags by the specified ignore pattern', async () => {
+      if (shouldSkip) {
+        return
+      }
+      const result = await getPreviousGitTag({
+        cwd: '.',
+        tagsPattern: '*',
+        tagsIgnorePattern: 'v0.*.*',
+        currentBranch: 'v1.0.1'
+      })
+      expect(result).toEqual({
+        tag: 'v1.0.0',
+        sha: 'f0751de6af436d4e79016e2041cf6400e0833653'
+      })
+    })
+
+    // No tags are available in the repository
+    it('should return empty values when no tags are available in the repository', async () => {
+      jest.spyOn(exec, 'getExecOutput').mockResolvedValueOnce({
+        stdout: '',
+        stderr: '',
+        exitCode: 0
+      })
+      const result = await getPreviousGitTag({
+        cwd: '.',
+        tagsPattern: '*',
+        tagsIgnorePattern: '',
+        currentBranch: ''
+      })
+      expect(result).toEqual({tag: '', sha: ''})
+    })
+
+    // Only one tag is available, making it impossible to find a previous tag
+    it('should return empty values when only one tag is available', async () => {
+      jest.spyOn(exec, 'getExecOutput').mockResolvedValueOnce({
+        stdout:
+          'v1.0.1|f0751de6af436d4e79016e2041cf6400e0833653|2021-01-01T00:00:00Z',
+        stderr: '',
+        exitCode: 0
+      })
+      const result = await getPreviousGitTag({
+        cwd: '.',
+        tagsPattern: '*',
+        tagsIgnorePattern: '',
+        currentBranch: 'v1.0.1'
+      })
+      expect(result).toEqual({tag: '', sha: ''})
+    })
+
+    // Git commands fail and throw errors
+    it('should throw an error when git commands fail', async () => {
+      jest
+        .spyOn(exec, 'getExecOutput')
+        .mockRejectedValue(new Error('git command failed'))
+      await expect(
+        getPreviousGitTag({
+          cwd: '.',
+          tagsPattern: '*',
+          tagsIgnorePattern: '',
+          currentBranch: 'v1.0.1'
+        })
+      ).rejects.toThrow('git command failed')
     })
   })
 })

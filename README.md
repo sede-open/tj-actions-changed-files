@@ -3,13 +3,12 @@
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge\&logo=windows\&logoColor=white)](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on)
 [![Public workflows that use this action.](https://img.shields.io/endpoint?style=for-the-badge\&url=https%3A%2F%2Fused-by.vercel.app%2Fapi%2Fgithub-actions%2Fused-by%3Faction%3Dtj-actions%2Fchanged-files%26package_id%3DUGFja2FnZS0yOTQyNTU4MDk5%26badge%3Dtrue)](https://github.com/search?o=desc\&q=tj-actions+changed-files+language%3AYAML\&s=\&type=Code)
 
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/4fe2f49c3ab144b0bbe4effc85a061a0)](https://app.codacy.com/gh/tj-actions/changed-files/dashboard?utm_source=gh\&utm_medium=referral\&utm_content=\&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/d59579c4b70e453a93cd2147b5d57384)](https://app.codacy.com/gh/tj-actions/changed-files/dashboard?utm_source=gh\&utm_medium=referral\&utm_content=\&utm_campaign=Badge_grade)
 [![CI](https://github.com/tj-actions/changed-files/actions/workflows/test.yml/badge.svg)](https://github.com/tj-actions/changed-files/actions/workflows/test.yml)
-[![Update release version.](https://github.com/tj-actions/changed-files/actions/workflows/sync-release-version.yml/badge.svg)](https://github.com/tj-actions/changed-files/actions/workflows/sync-release-version.yml)
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 
-[![All Contributors](https://img.shields.io/badge/all_contributors-26-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-31-orange.svg?style=flat-square)](#contributors-)
 
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
@@ -21,7 +20,7 @@ Effortlessly track all changed files and directories relative to a target branch
 >
 > *   This action solely identifies files that have changed for events such as [`pull_request*`, `push`, `merge_group`, `release`, and many more](#other-supported-events-electron). However, it doesn't detect pending uncommitted changes created during the workflow execution.
 >
->     See: https://github.com/tj-actions/verify-changed-files instead
+>     See: https://github.com/tj-actions/verify-changed-files instead.
 
 ## Table of contents
 
@@ -45,11 +44,12 @@ Effortlessly track all changed files and directories relative to a target branch
 *   [Credits 👏](#credits-)
 *   [Report Bugs 🐛](#report-bugs-)
 *   [Contributors ✨](#contributors-)
+*   [💼 Automate Your Job Search Too](#-automate-your-job-search-too)
 
 ## Features 🚀
 
 *   Fast execution, averaging 0-10 seconds.
-*   Leverages either [Github's REST API](https://docs.github.com/en/rest/reference/repos#list-commits) or [Git's native diff](https://git-scm.com/docs/git-diff) to determine changed files.
+*   Leverages either [Github's REST API](https://docs.github.com/en/rest/reference/repos#list-commits) or [Git's native diff command](https://git-scm.com/docs/git-diff) to determine changed files.
 *   Facilitates easy debugging.
 *   Scales to handle large/mono repositories.
 *   Supports Git submodules.
@@ -60,7 +60,7 @@ Effortlessly track all changed files and directories relative to a target branch
     *   Optionally excludes the current directory.
 *   Writes outputs to a designated `.txt` or `.json` file for further processing.
 *   Restores deleted files to their previous location or a newly specified location.
-*   Supports fetching a fixed number of commits which improves performance.
+*   Supports fetching a fixed number of commits, which improves performance.
 *   Compatible with all platforms (Linux, MacOS, Windows).
 *   Supports [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners).
 *   Supports [GitHub Enterprise Server](https://docs.github.com/en/enterprise-server@3.3/admin/github-actions/getting-started-with-github-actions-for-your-enterprise/getting-started-with-github-actions-for-github-enterprise-server).
@@ -71,7 +71,7 @@ Effortlessly track all changed files and directories relative to a target branch
     *   Between the last remote branch commit and the current HEAD.
 *   Restricts change detection to a subset of files and directories:
     *   Provides boolean output indicating changes in specific files.
-    *   Uses [Glob pattern](https://codepen.io/mrmlnc/pen/OXQjMe) matching.
+    *   Uses [Glob pattern](https://en.wikipedia.org/wiki/Glob_\(programming\)) matching.
         *   Supports Globstar.
         *   Supports brace expansion.
         *   Supports negation.
@@ -122,7 +122,7 @@ jobs:
       # -----------------------------------------------------------------------------------------------------------
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
         # with:
         #   since_last_remote_commit: true 
@@ -140,11 +140,12 @@ jobs:
       # -----------------------------------------------------------------------------------------------------------
       - name: Get all changed markdown files
         id: changed-markdown-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           # Avoid using single or double quotes for multiline patterns
           files: |
-             **.md
+            **.md
+            docs/**.md
 
       - name: List all changed files markdown files
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
@@ -160,7 +161,7 @@ jobs:
       # -----------------------------------------------------------------------------------------------------------
       - name: Get all test, doc and src files that have changed
         id: changed-files-yaml
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files_yaml: |
             doc:
@@ -195,7 +196,7 @@ jobs:
       # -----------------------------------------------------------------------------------------------------------
       - name: Get changed files in the docs folder
         id: changed-files-specific
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: docs/*.{js,html}  # Alternatively using: `docs/**`
           files_ignore: docs/static.js
@@ -218,6 +219,7 @@ on:
   pull_request:
     branches:
       - main
+  merge_group:
 
 jobs:
   # -------------------------------------------------------------
@@ -237,7 +239,7 @@ jobs:
     steps:
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
 
       - name: List all changed files
         env:
@@ -280,7 +282,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       # NOTE: `since_last_remote_commit: true` is implied by default and falls back to the previous local commit.
 
       - name: List all changed files
@@ -320,14 +322,14 @@ Support this project with a :star:
 > *   When using `files_yaml*` inputs:
 >     *   All keys must start with a letter or `_` and contain only alphanumeric characters, `-`, or `_`.
 >
->         For example, `test` or `test_key` or `test-key` or `_test_key` are all valid.
+>         For example, `test` or `test_key` or `test-key` or `_test_key` are all valid choices.
 
 ## Inputs ⚙️
 
 <!-- AUTO-DOC-INPUT:START - Do not remove or modify this section -->
 
 ```yaml
-- uses: tj-actions/changed-files@v43
+- uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
   id: changed-files
   with:
     # Github API URL.
@@ -335,52 +337,68 @@ Support this project with a :star:
     # Default: "${{ github.api_url }}"
     api_url: ''
 
-    # Specify a different base commit SHA or branch used 
-    # for comparing changes 
+    # Specify a different base commit 
+    # SHA or branch used for 
+    # comparing changes 
     # Type: string
     base_sha: ''
 
-    # Exclude changes outside the current directory and show path 
-    # names relative to it. NOTE: This requires you to 
-    # specify the top-level directory via the `path` input. 
+    # Exclude changes outside the current 
+    # directory and show path names 
+    # relative to it. NOTE: This 
+    # requires you to specify the 
+    # top-level directory via the `path` 
+    # input. 
     # Type: boolean
     # Default: "true"
     diff_relative: ''
 
-    # Output unique changed directories instead of filenames. NOTE: This 
-    # returns `.` for changed files located in the current 
-    # working directory which defaults to `$GITHUB_WORKSPACE`. 
+    # Output unique changed directories instead 
+    # of filenames. NOTE: This returns 
+    # `.` for changed files located 
+    # in the current working directory 
+    # which defaults to `$GITHUB_WORKSPACE`. 
     # Type: boolean
     # Default: "false"
     dir_names: ''
 
-    # Include only directories that have been deleted as opposed 
-    # to directory names of files that have been deleted 
-    # in the `deleted_files` output when `dir_names` is set to 
-    # `true`. 
+    # Include only directories that have 
+    # been deleted as opposed to 
+    # directory names of files that 
+    # have been deleted in the 
+    # `deleted_files` output when `dir_names` is 
+    # set to `true`. 
     # Type: boolean
     # Default: "false"
     dir_names_deleted_files_include_only_deleted_dirs: ''
 
-    # Exclude the current directory represented by `.` from the 
-    # output when `dir_names` is set to `true`. 
+    # Exclude the current directory represented 
+    # by `.` from the output 
+    # when `dir_names` is set to 
+    # `true`. 
     # Type: boolean
     # Default: "false"
     dir_names_exclude_current_dir: ''
 
-    # File and directory patterns to include in the output 
-    # when `dir_names` is set to `true`. NOTE: This returns 
-    # only the matching files and also the directory names. 
+    # File and directory patterns to 
+    # include in the output when 
+    # `dir_names` is set to `true`. 
+    # NOTE: This returns only the 
+    # matching files and also the 
+    # directory names. 
     # Type: string
     dir_names_include_files: ''
 
-    # Separator used to split the `dir_names_include_files` input
+    # Separator used to split the 
+    # `dir_names_include_files` input 
     # Type: string
     # Default: "\n"
     dir_names_include_files_separator: ''
 
-    # Limit the directory output to a maximum depth e.g 
-    # `test/test1/test2` with max depth of `2` returns `test/test1`. 
+    # Limit the directory output to 
+    # a maximum depth e.g `test/test1/test2` 
+    # with max depth of `2` 
+    # returns `test/test1`. 
     # Type: string
     dir_names_max_depth: ''
 
@@ -389,12 +407,24 @@ Support this project with a :star:
     # Default: "true"
     escape_json: ''
 
-    # Fail when the initial diff fails.
+    # Exclude changes to submodules.
+    # Type: boolean
+    # Default: "false"
+    exclude_submodules: ''
+
+    # Exclude symlinks from changed files.
+    # Type: boolean
+    # Default: "false"
+    exclude_symlinks: ''
+
+    # Fail when the initial diff 
+    # fails. 
     # Type: boolean
     # Default: "false"
     fail_on_initial_diff_error: ''
 
-    # Fail when the submodule diff fails.
+    # Fail when the submodule diff 
+    # fails. 
     # Type: boolean
     # Default: "false"
     fail_on_submodule_diff_error: ''
@@ -404,112 +434,140 @@ Support this project with a :star:
     # Default: "false"
     fetch_additional_submodule_history: ''
 
-    # Depth of additional branch history fetched. NOTE: This can 
-    # be adjusted to resolve errors with insufficient history. 
+    # Depth of additional branch history 
+    # fetched. NOTE: This can be 
+    # adjusted to resolve errors with 
+    # insufficient history. 
     # Type: string
-    # Default: "50"
+    # Default: "25"
     fetch_depth: ''
 
-    # File and directory patterns used to detect changes (Defaults to the entire repo if unset). 
-    # NOTE: Multiline file/directory patterns should not include quotes. 
+    # Maximum number of retries to 
+    # fetch missing history. 
+    # Type: string
+    # Default: "20"
+    fetch_missing_history_max_retries: ''
+
+    # File and directory patterns used 
+    # to detect changes (Defaults to the entire repo if unset). NOTE: 
+    # Multiline file/directory patterns should not 
+    # include quotes. 
     # Type: string
     files: ''
 
-    # Source file(s) used to populate the `files` input.
+    # Source file(s) used to populate 
+    # the `files` input. 
     # Type: string
     files_from_source_file: ''
 
-    # Separator used to split the `files_from_source_file` input.
+    # Separator used to split the 
+    # `files_from_source_file` input. 
     # Type: string
     # Default: "\n"
     files_from_source_file_separator: ''
 
-    # Ignore changes to these file(s). NOTE: Multiline file/directory patterns 
-    # should not include quotes. 
+    # Ignore changes to these file(s). 
+    # NOTE: Multiline file/directory patterns should 
+    # not include quotes. 
     # Type: string
     files_ignore: ''
 
-    # Source file(s) used to populate the `files_ignore` input
+    # Source file(s) used to populate 
+    # the `files_ignore` input 
     # Type: string
     files_ignore_from_source_file: ''
 
-    # Separator used to split the `files_ignore_from_source_file` input
+    # Separator used to split the 
+    # `files_ignore_from_source_file` input 
     # Type: string
     # Default: "\n"
     files_ignore_from_source_file_separator: ''
 
-    # Separator used to split the `files_ignore` input
+    # Separator used to split the 
+    # `files_ignore` input 
     # Type: string
     # Default: "\n"
     files_ignore_separator: ''
 
-    # YAML used to define a set of file patterns 
-    # to ignore changes 
+    # YAML used to define a 
+    # set of file patterns to 
+    # ignore changes 
     # Type: string
     files_ignore_yaml: ''
 
-    # Source file(s) used to populate the `files_ignore_yaml` input. Example: 
-    # https://github.com/tj-actions/changed-files/blob/main/test/changed-files.yml 
+    # Source file(s) used to populate 
+    # the `files_ignore_yaml` input. Example: https://github.com/tj-actions/changed-files/blob/main/test/changed-files.yml 
     # Type: string
     files_ignore_yaml_from_source_file: ''
 
-    # Separator used to split the `files_ignore_yaml_from_source_file` input
+    # Separator used to split the 
+    # `files_ignore_yaml_from_source_file` input 
     # Type: string
     # Default: "\n"
     files_ignore_yaml_from_source_file_separator: ''
 
-    # Separator used to split the `files` input
+    # Separator used to split the 
+    # `files` input 
     # Type: string
     # Default: "\n"
     files_separator: ''
 
-    # YAML used to define a set of file patterns 
-    # to detect changes 
+    # YAML used to define a 
+    # set of file patterns to 
+    # detect changes 
     # Type: string
     files_yaml: ''
 
-    # Source file(s) used to populate the `files_yaml` input. Example: 
-    # https://github.com/tj-actions/changed-files/blob/main/test/changed-files.yml 
+    # Source file(s) used to populate 
+    # the `files_yaml` input. Example: https://github.com/tj-actions/changed-files/blob/main/test/changed-files.yml 
     # Type: string
     files_yaml_from_source_file: ''
 
-    # Separator used to split the `files_yaml_from_source_file` input
+    # Separator used to split the 
+    # `files_yaml_from_source_file` input 
     # Type: string
     # Default: "\n"
     files_yaml_from_source_file_separator: ''
 
-    # Include `all_old_new_renamed_files` output. Note this can generate a large 
-    # output See: #501. 
+    # Include `all_old_new_renamed_files` output. Note this 
+    # can generate a large output 
+    # See: #501. 
     # Type: boolean
     # Default: "false"
     include_all_old_new_renamed_files: ''
 
-    # Output list of changed files in a JSON formatted 
-    # string which can be used for matrix jobs. Example: 
-    # https://github.com/tj-actions/changed-files/blob/main/.github/workflows/matrix-example.yml 
+    # Output list of changed files 
+    # in a JSON formatted string 
+    # which can be used for 
+    # matrix jobs. Example: https://github.com/tj-actions/changed-files/blob/main/.github/workflows/matrix-example.yml 
     # Type: boolean
     # Default: "false"
     json: ''
 
-    # Output changed files in a format that can be 
-    # used for matrix jobs. Alias for setting inputs `json` 
-    # to `true` and `escape_json` to `false`. 
+    # Output changed files in a 
+    # format that can be used 
+    # for matrix jobs. Alias for 
+    # setting inputs `json` to `true` 
+    # and `escape_json` to `false`. 
     # Type: boolean
     # Default: "false"
     matrix: ''
 
-    # Apply the negation patterns first. NOTE: This affects how 
-    # changed files are matched. 
+    # Apply the negation patterns first. 
+    # NOTE: This affects how changed 
+    # files are matched. 
     # Type: boolean
     # Default: "false"
     negation_patterns_first: ''
 
-    # Split character for old and new renamed filename pairs.
+    # Split character for old and 
+    # new renamed filename pairs. 
     # Type: string
     # Default: " "
     old_new_files_separator: ''
 
-    # Split character for old and new filename pairs.
+    # Split character for old and 
+    # new filename pairs. 
     # Type: string
     # Default: ","
     old_new_separator: ''
@@ -519,19 +577,22 @@ Support this project with a :star:
     # Default: ".github/outputs"
     output_dir: ''
 
-    # Output renamed files as deleted and added files.
+    # Output renamed files as deleted 
+    # and added files. 
     # Type: boolean
     # Default: "false"
     output_renamed_files_as_deleted_and_added: ''
 
-    # Specify a relative path under `$GITHUB_WORKSPACE` to locate the 
-    # repository. 
+    # Specify a relative path under 
+    # `$GITHUB_WORKSPACE` to locate the repository. 
     # Type: string
     # Default: "."
     path: ''
 
-    # Use non-ASCII characters to match files and output the 
-    # filenames completely verbatim by setting this to `false` 
+    # Use non-ASCII characters to match 
+    # files and output the filenames 
+    # completely verbatim by setting this 
+    # to `false` 
     # Type: boolean
     # Default: "true"
     quotepath: ''
@@ -541,35 +602,41 @@ Support this project with a :star:
     # Default: "false"
     recover_deleted_files: ''
 
-    # Recover deleted files to a new destination directory, defaults 
-    # to the original location. 
+    # Recover deleted files to a 
+    # new destination directory, defaults to 
+    # the original location. 
     # Type: string
     recover_deleted_files_to_destination: ''
 
-    # File and directory patterns used to recover deleted files, 
-    # defaults to the patterns provided via the `files`, `files_from_source_file`, 
-    # `files_ignore` and `files_ignore_from_source_file` inputs or all deleted files if 
-    # no patterns are provided. 
+    # File and directory patterns used 
+    # to recover deleted files, defaults 
+    # to the patterns provided via 
+    # the `files`, `files_from_source_file`, `files_ignore` and 
+    # `files_ignore_from_source_file` inputs or all deleted 
+    # files if no patterns are 
+    # provided. 
     # Type: string
     recover_files: ''
 
-    # File and directory patterns to ignore when recovering deleted 
-    # files. 
+    # File and directory patterns to 
+    # ignore when recovering deleted files. 
     # Type: string
     recover_files_ignore: ''
 
-    # Separator used to split the `recover_files_ignore` input
+    # Separator used to split the 
+    # `recover_files_ignore` input 
     # Type: string
     # Default: "\n"
     recover_files_ignore_separator: ''
 
-    # Separator used to split the `recover_files` input
+    # Separator used to split the 
+    # `recover_files` input 
     # Type: string
     # Default: "\n"
     recover_files_separator: ''
 
-    # Apply sanitization to output filenames before being set as 
-    # output. 
+    # Apply sanitization to output filenames 
+    # before being set as output. 
     # Type: boolean
     # Default: "true"
     safe_output: ''
@@ -579,53 +646,89 @@ Support this project with a :star:
     # Default: " "
     separator: ''
 
-    # Specify a different commit SHA or branch used for 
-    # comparing changes 
+    # Specify a different commit SHA 
+    # or branch used for comparing 
+    # changes 
     # Type: string
     sha: ''
 
-    # Get changed files for commits whose timestamp is older 
-    # than the given time. 
+    # Get changed files for commits 
+    # whose timestamp is older than 
+    # the given time. 
     # Type: string
     since: ''
 
-    # Use the last commit on the remote branch as 
-    # the `base_sha`. Defaults to the last non-merge commit on 
-    # the target branch for pull request events and the 
-    # previous remote commit of the current branch for push 
-    # events. 
+    # Use the last commit on 
+    # the remote branch as the 
+    # `base_sha`. Defaults to the last 
+    # non-merge commit on the target 
+    # branch for pull request events 
+    # and the previous remote commit 
+    # of the current branch for 
+    # push events. 
     # Type: boolean
     # Default: "false"
     since_last_remote_commit: ''
 
-    # Skip initially fetching additional history to improve performance for 
-    # shallow repositories. NOTE: This could lead to errors with 
-    # missing history. It's intended to be used when you've 
-    # fetched all necessary history to perform the diff. 
+    # Skip initially fetching additional history 
+    # to improve performance for shallow 
+    # repositories. NOTE: This could lead 
+    # to errors with missing history. 
+    # It's intended to be used 
+    # when you've fetched all necessary 
+    # history to perform the diff. 
     # Type: boolean
     # Default: "false"
     skip_initial_fetch: ''
 
-    # GitHub token used to fetch changed files from Github's 
-    # API. 
+    # Do not fail when base 
+    # and head SHAs are identical. 
+    # Type: boolean
+    # Default: "false"
+    skip_same_sha: ''
+
+    # Tags pattern to ignore.
+    # Type: string
+    tags_ignore_pattern: ''
+
+    # Tags pattern to include.
+    # Type: string
+    # Default: "*"
+    tags_pattern: ''
+
+    # GitHub token used to fetch 
+    # changed files from Github's API. 
     # Type: string
     # Default: "${{ github.token }}"
     token: ''
 
-    # Get changed files for commits whose timestamp is earlier 
-    # than the given time. 
+    # Get changed files for commits 
+    # whose timestamp is earlier than 
+    # the given time. 
     # Type: string
     until: ''
 
-    # Force the use of Github's REST API even when 
-    # a local copy of the repository exists 
+    # Use POSIX path separator `/` 
+    # for output file paths on 
+    # Windows. 
+    # Type: boolean
+    # Default: "false"
+    use_posix_path_separator: ''
+
+    # Force the use of Github's 
+    # REST API even when a 
+    # local copy of the repository 
+    # exists 
     # Type: boolean
     # Default: "false"
     use_rest_api: ''
 
-    # Write outputs to the `output_dir` defaults to `.github/outputs` folder. 
-    # NOTE: This creates a `.txt` file by default and 
-    # a `.json` file if `json` is set to `true`. 
+    # Write outputs to the `output_dir` 
+    # defaults to `.github/outputs` folder. NOTE: 
+    # This creates a `.txt` file 
+    # by default and a `.json` 
+    # file if `json` is set 
+    # to `true`. 
     # Type: boolean
     # Default: "false"
     write_output_files: ''
@@ -662,33 +765,34 @@ Support this project with a :star:
 |------------------------------------------------------------------------------------------------------------------------------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |                                      <a name="output_added_files"></a>[added\_files](#output_added_files)                                       | string |                                                                                                                                       Returns only files that are <br>Added (A).                                                                                                                                        |
 |                             <a name="output_added_files_count"></a>[added\_files\_count](#output_added_files_count)                              | string |                                                                                                                                           Returns the number of `added_files`                                                                                                                                           |
-|          <a name="output_all_changed_and_modified_files"></a>[all\_changed\_and\_modified\_files](#output_all_changed_and_modified_files)          | string |                                                                                                                     Returns all changed and modified <br>files i.e. *a combination of (ACMRDTUX)*                                                                                                                       |
+|          <a name="output_all_changed_and_modified_files"></a>[all\_changed\_and\_modified\_files](#output_all_changed_and_modified_files)          | string |                                                                                                                    Returns all changed and modified <br>files i.e. a combination of <br>(ACMRDTUX)                                                                                                                      |
 | <a name="output_all_changed_and_modified_files_count"></a>[all\_changed\_and\_modified\_files\_count](#output_all_changed_and_modified_files_count) | string |                                                                                                                                 Returns the number of `all_changed_and_modified_files`                                                                                                                                  |
-|                             <a name="output_all_changed_files"></a>[all\_changed\_files](#output_all_changed_files)                              | string |                                                                                                       Returns all changed files i.e. <br>*a combination of all added, copied, modified and renamed files (ACMR)*                                                                                                        |
+|                             <a name="output_all_changed_files"></a>[all\_changed\_files](#output_all_changed_files)                              | string |                                                                                                    Returns all changed files i.e. <br>a combination of all added, <br>copied, modified and renamed files <br>(ACMR)                                                                                                     |
 |                    <a name="output_all_changed_files_count"></a>[all\_changed\_files\_count](#output_all_changed_files_count)                     | string |                                                                                                                                        Returns the number of `all_changed_files`                                                                                                                                        |
-|                            <a name="output_all_modified_files"></a>[all\_modified\_files](#output_all_modified_files)                            | string |                                                                                                 Returns all changed files i.e. <br>*a combination of all added, copied, modified, renamed and deleted files (ACMRD)*.                                                                                                   |
+|                            <a name="output_all_modified_files"></a>[all\_modified\_files](#output_all_modified_files)                            | string |                                                                                              Returns all changed files i.e. <br>a combination of all added, <br>copied, modified, renamed and deleted <br>files (ACMRD).                                                                                                |
 |                   <a name="output_all_modified_files_count"></a>[all\_modified\_files\_count](#output_all_modified_files_count)                   | string |                                                                                                                                       Returns the number of `all_modified_files`                                                                                                                                        |
 |                 <a name="output_all_old_new_renamed_files"></a>[all\_old\_new\_renamed\_files](#output_all_old_new_renamed_files)                  | string | Returns only files that are <br>Renamed and lists their old <br>and new names. **NOTE:** This <br>requires setting `include_all_old_new_renamed_files` to `true`. <br>Also, keep in mind that <br>this output is global and <br>wouldn't be nested in outputs <br>generated when the `*_yaml_*` input <br>is used. (R)  |
 |        <a name="output_all_old_new_renamed_files_count"></a>[all\_old\_new\_renamed\_files\_count](#output_all_old_new_renamed_files_count)         | string |                                                                                                                                    Returns the number of `all_old_new_renamed_files`                                                                                                                                    |
+|                                         <a name="output_any_added"></a>[any\_added](#output_any_added)                                          | string |                                                                                                Returns `true` when any of <br>the filenames provided using the <br>`files*` or `files_ignore*` inputs have been added.                                                                                                  |
 |                                      <a name="output_any_changed"></a>[any\_changed](#output_any_changed)                                       | string |                      Returns `true` when any of <br>the filenames provided using the <br>`files*` or `files_ignore*` inputs have changed. This <br>defaults to `true` when no <br>patterns are specified. i.e. *includes a combination of all added, copied, modified and renamed files (ACMR)*.                        |
 |                                      <a name="output_any_deleted"></a>[any\_deleted](#output_any_deleted)                                       | string |                                                             Returns `true` when any of <br>the filenames provided using the <br>`files*` or `files_ignore*` inputs have been deleted. <br>This defaults to `true` when <br>no patterns are specified. (D)                                                               |
 |                                     <a name="output_any_modified"></a>[any\_modified](#output_any_modified)                                     | string |            Returns `true` when any of <br>the filenames provided using the <br>`files*` or `files_ignore*` inputs have been modified. <br>This defaults to `true` when <br>no patterns are specified. i.e. <br>*includes a combination of all added, copied, modified, renamed, and deleted files (ACMRD)*.             |
-|                                     <a name="output_changed_keys"></a>[changed\_keys](#output_changed_keys)                                     | string |                                                                     Returns all changed YAML keys <br>when the `files_yaml` input is <br>used. i.e. *key that contains any path that has either been added, copied, modified, and renamed (ACMR)*                                                                       |
+|                                     <a name="output_changed_keys"></a>[changed\_keys](#output_changed_keys)                                     | string |                                                                Returns all changed YAML keys <br>when the `files_yaml` input is <br>used. i.e. key that contains <br>any path that has either <br>been added, copied, modified, and <br>renamed (ACMR)                                                                  |
 |                                     <a name="output_copied_files"></a>[copied\_files](#output_copied_files)                                     | string |                                                                                                                                      Returns only files that are <br>Copied (C).                                                                                                                                        |
 |                            <a name="output_copied_files_count"></a>[copied\_files\_count](#output_copied_files_count)                            | string |                                                                                                                                          Returns the number of `copied_files`                                                                                                                                           |
 |                                   <a name="output_deleted_files"></a>[deleted\_files](#output_deleted_files)                                    | string |                                                                                                                                      Returns only files that are <br>Deleted (D).                                                                                                                                       |
 |                          <a name="output_deleted_files_count"></a>[deleted\_files\_count](#output_deleted_files_count)                           | string |                                                                                                                                          Returns the number of `deleted_files`                                                                                                                                          |
 |                                  <a name="output_modified_files"></a>[modified\_files](#output_modified_files)                                  | string |                                                                                                                                     Returns only files that are <br>Modified (M).                                                                                                                                       |
 |                         <a name="output_modified_files_count"></a>[modified\_files\_count](#output_modified_files_count)                         | string |                                                                                                                                         Returns the number of `modified_files`                                                                                                                                          |
-|                                   <a name="output_modified_keys"></a>[modified\_keys](#output_modified_keys)                                    | string |                                                                    Returns all modified YAML keys <br>when the `files_yaml` input is <br>used. i.e. *key that contains any path that has either been added, copied, modified, and deleted (ACMRD)*                                                                      |
+|                                   <a name="output_modified_keys"></a>[modified\_keys](#output_modified_keys)                                    | string |                                                               Returns all modified YAML keys <br>when the `files_yaml` input is <br>used. i.e. key that contains <br>any path that has either <br>been added, copied, modified, and <br>deleted (ACMRD)                                                                 |
 |                                     <a name="output_only_changed"></a>[only\_changed](#output_only_changed)                                     | string |                                                           Returns `true` when only files <br>provided using the `files*` or `files_ignore*` inputs <br>have changed. i.e. *includes a combination of all added, copied, modified and renamed files (ACMR)*.                                                             |
 |                                     <a name="output_only_deleted"></a>[only\_deleted](#output_only_deleted)                                     | string |                                                                                                  Returns `true` when only files <br>provided using the `files*` or `files_ignore*` inputs <br>have been deleted. (D)                                                                                                    |
 |                                   <a name="output_only_modified"></a>[only\_modified](#output_only_modified)                                    | string |                                                                                               Returns `true` when only files <br>provided using the `files*` or `files_ignore*` inputs <br>have been modified. (ACMRD).                                                                                                 |
-|                          <a name="output_other_changed_files"></a>[other\_changed\_files](#output_other_changed_files)                           | string |                                                                              Returns all other changed files <br>not listed in the files <br>input i.e. *includes a combination of all added, copied, modified and renamed files (ACMR)*.                                                                               |
+|                          <a name="output_other_changed_files"></a>[other\_changed\_files](#output_other_changed_files)                           | string |                                                                           Returns all other changed files <br>not listed in the files <br>input i.e. includes a combination <br>of all added, copied, modified <br>and renamed files (ACMR).                                                                            |
 |                 <a name="output_other_changed_files_count"></a>[other\_changed\_files\_count](#output_other_changed_files_count)                  | string |                                                                                                                                       Returns the number of `other_changed_files`                                                                                                                                       |
-|                          <a name="output_other_deleted_files"></a>[other\_deleted\_files](#output_other_deleted_files)                           | string |                                                                                                  Returns all other deleted files <br>not listed in the files <br>input i.e. *a  combination of all deleted files (D)*                                                                                                   |
+|                          <a name="output_other_deleted_files"></a>[other\_deleted\_files](#output_other_deleted_files)                           | string |                                                                                                 Returns all other deleted files <br>not listed in the files <br>input i.e. a combination of <br>all deleted files (D)                                                                                                   |
 |                 <a name="output_other_deleted_files_count"></a>[other\_deleted\_files\_count](#output_other_deleted_files_count)                  | string |                                                                                                                                       Returns the number of `other_deleted_files`                                                                                                                                       |
-|                         <a name="output_other_modified_files"></a>[other\_modified\_files](#output_other_modified_files)                         | string |                                                                                 Returns all other modified files <br>not listed in the files <br>input i.e. *a combination of all added, copied, modified, and deleted files (ACMRD)*                                                                                   |
+|                         <a name="output_other_modified_files"></a>[other\_modified\_files](#output_other_modified_files)                         | string |                                                                              Returns all other modified files <br>not listed in the files <br>input i.e. a combination of <br>all added, copied, modified, and <br>deleted files (ACMRD)                                                                                |
 |                <a name="output_other_modified_files_count"></a>[other\_modified\_files\_count](#output_other_modified_files_count)                | string |                                                                                                                                      Returns the number of `other_modified_files`                                                                                                                                       |
 |                                   <a name="output_renamed_files"></a>[renamed\_files](#output_renamed_files)                                    | string |                                                                                                                                      Returns only files that are <br>Renamed (R).                                                                                                                                       |
 |                          <a name="output_renamed_files_count"></a>[renamed\_files\_count](#output_renamed_files_count)                           | string |                                                                                                                                          Returns the number of `renamed_files`                                                                                                                                          |
@@ -722,7 +826,7 @@ The format of the version string is as follows:
 ...
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
 ...
 ```
 
@@ -735,7 +839,7 @@ The format of the version string is as follows:
 ...
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         safe_output: false # set to false because we are using an environment variable to store the output and avoid command injection.
 
@@ -758,7 +862,7 @@ The format of the version string is as follows:
 ...
     - name: Get all changed files and use a comma separator in the output
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         separator: ","
 ...
@@ -775,7 +879,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
 
     - name: List all added files
       env:
@@ -798,7 +902,7 @@ See [outputs](#outputs) for a list of all available outputs.
 ...
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
 
     - name: Run a step if my-file.txt was modified
       if: contains(steps.changed-files.outputs.modified_files, 'my-file.txt')
@@ -819,7 +923,7 @@ See [outputs](#outputs) for a list of all available outputs.
 
    - name: Get changed files and write the outputs to a Txt file
      id: changed-files-write-output-files-txt
-     uses: tj-actions/changed-files@v43
+     uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
      with:
        write_output_files: true
 
@@ -838,7 +942,7 @@ See [outputs](#outputs) for a list of all available outputs.
 ...
    - name: Get changed files and write the outputs to a JSON file
      id: changed-files-write-output-files-json
-     uses: tj-actions/changed-files@v43
+     uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
      with:
        json: true
        write_output_files: true
@@ -858,7 +962,7 @@ See [outputs](#outputs) for a list of all available outputs.
 ...
     - name: Get changed files
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         files: |
           my-file.txt
@@ -881,7 +985,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed files
       id: changed-files-specific
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         files: |
           my-file.txt
@@ -932,7 +1036,7 @@ See [outputs](#outputs) for a list of all available outputs.
 ...
     - name: Get changed files using a source file or list of file(s) to populate to files input.
       id: changed-files-specific-source-file
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         files_from_source_file: test/changed-files-list.txt
 ...
@@ -949,7 +1053,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed files using a source file or list of file(s) to populate to files input and optionally specify more files.
       id: changed-files-specific-source-file-and-specify-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         files_from_source_file: |
           test/changed-files-list.txt
@@ -970,7 +1074,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed files using a different SHA
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         sha: ${{ github.event.pull_request.head.sha }}
 ...
@@ -987,7 +1091,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed files using a different base SHA
       id: changed-files
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         base_sha: ${{ github.event.pull_request.base.sha }}
 ...
@@ -1019,7 +1123,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
 
       - name: List changed files
         env:
@@ -1029,7 +1133,7 @@ jobs:
 
       - name: Get changed files in the .github folder
         id: changed-files-specific
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: .github/**
 
@@ -1060,14 +1164,13 @@ See [inputs](#inputs) for more information.
 
     - name: Run changed-files with defaults in dir1
       id: changed-files-for-dir1
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         path: dir1
 
     - name: List all added files in dir1
       env:
-        ADDED_FILES: |-
-          ${{ steps.changed-files-for-dir1.outputs.added_files }}
+        ADDED_FILES: ${{ steps.changed-files-for-dir1.outputs.added_files }}
       run: |
         for file in ${ADDED_FILES}; do
           echo "$file was added"
@@ -1086,13 +1189,13 @@ See [inputs](#inputs) for more information.
 ...
     - name: Run changed-files with quotepath disabled
       id: changed-files-quotepath
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         quotepath: "false"
 
     - name: Run changed-files with quotepath disabled for a specified list of file(s)
       id: changed-files-quotepath-specific
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         files: test/test-è.txt
         quotepath: "false"
@@ -1125,7 +1228,7 @@ See [inputs](#inputs) for more information.
 
       - name: Run changed-files with the commit of the last successful test workflow run
         id: changed-files-base-sha-push
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           base_sha: ${{ steps.last_successful_commit_push.outputs.base }}
 ...
@@ -1152,7 +1255,7 @@ See [inputs](#inputs) for more information.
 
       - name: Run changed-files with the commit of the last successful test workflow run on the main branch
         id: changed-files-base-sha-pull-request
-        uses: tj-actions/changed-files@v43
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           base_sha: ${{ steps.last_successful_commit_pull_request.outputs.base }}
 ...
@@ -1178,7 +1281,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Run changed-files with dir_names
       id: changed-files-dir-names
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         dir_names: "true"
 ...
@@ -1195,7 +1298,7 @@ See [inputs](#inputs) for more information.
 ...
     - name: Run changed-files with JSON output
       id: changed-files-json
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         json: "true"
 ...
@@ -1212,13 +1315,13 @@ See [inputs](#inputs) for more information.
 ...
     - name: Get changed-files since 2022-08-19
       id: changed-files-since
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         since: "2022-08-19"
 
     - name: Get changed-files until 2022-08-20
       id: changed-files-until
-      uses: tj-actions/changed-files@v43
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
       with:
         until: "2022-08-20"
 ...
@@ -1236,13 +1339,9 @@ See [inputs](#inputs) for more information.
 
 *   [qgis/QGIS: uses tj-actions/changed-files to automate spell checking](https://github.com/qgis/QGIS/blob/a5333497e90ac9de4ca70463d8e0b64c3f294d63/.github/workflows/code_layout.yml#L147)
 
-*   [coder/code-server: uses tj-actions/changed-files to automate detecting changes and run steps based on the outcome](https://github.com/coder/code-server/blob/c32a31d802f679846876b8ad9aacff6cf7b5361d/.github/workflows/build.yaml#L48)
-
 *   [tldr-pages/tldr: uses tj-actions/changed-files to automate detecting spelling errors](https://github.com/tldr-pages/tldr/blob/c1b714c55cb0048037b79a681a10d7f3ddb0164c/.github/workflows/codespell.yml#L18-L26)
 
 *   [nodejs/docker-node: uses tj-actions/changed-files to generate matrix jobs based on changes detected](https://github.com/nodejs/docker-node/blob/3c4fa6daf06a4786d202f2f610351837806a0380/.github/workflows/build-test.yml#L29)
-
-*   [refined-github: uses tj-actions/changed-files to automate test URL validation in added/edited files](https://github.com/refined-github/refined-github/blob/b754bfe58904da8a599d7876fdaaf18302785629/.github/workflows/features.yml#L35)
 
 *   [aws-doc-sdk-examples: uses tj-actions/changed-files to automate testing](https://github.com/awsdocs/aws-doc-sdk-examples/blob/2393723ef6b0cad9502f4852f5c72f7be58ca89d/.github/workflows/javascript.yml#L22)
 
@@ -1250,7 +1349,7 @@ See [inputs](#inputs) for more information.
 
 *   [qmk\_firmware uses tj-actions/changed-files to run linters](https://github.com/qmk/qmk_firmware/blob/7a737235ffd49c32d2c5561e8fe53fd96baa7f96/.github/workflows/lint.yml#L30)
 
-*   [argo-cd uses tj-actions/chnaged-files to detect changed frontend or backend files](https://github.com/argoproj/argo-cd/blob/5bc1850aa1d26301043be9f2fb825d88c80c111c/.github/workflows/ci-build.yaml#L33)
+*   [argo-cd uses tj-actions/changed-files to detect changed frontend or backend files](https://github.com/argoproj/argo-cd/blob/5bc1850aa1d26301043be9f2fb825d88c80c111c/.github/workflows/ci-build.yaml#L33)
 
 *   [argo-workflows uses tj-actions/changed-files to run specific jobs based on changes detected](https://github.com/argoproj/argo-workflows/blob/baef4856ff2603c76dbe277c825eaa3f9788fc91/.github/workflows/ci-build.yaml#L34)
 
@@ -1307,7 +1406,7 @@ Report bugs at https://github.com/tj-actions/changed-files/issues.
 If you are reporting a bug, please include:
 
 *   Your operating system name and version.
-*   Any details about your workflow that might be helpful in troubleshooting. (**NOTE**: Ensure that you include full log outputs with debugging enabled)
+*   All essential details about your workflow that might be helpful in troubleshooting. (**NOTE**: Ensure that you include full log outputs with debugging enabled)
 *   Detailed steps to reproduce the bug.
 
 ## Contributors ✨
@@ -1355,6 +1454,13 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/dan-hill2802"><img src="https://avatars.githubusercontent.com/u/5046322?v=4?s=100" width="100px;" alt="Daniel Hill"/><br /><sub><b>Daniel Hill</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=dan-hill2802" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://keisukeyamashita.com"><img src="https://avatars.githubusercontent.com/u/23056537?v=4?s=100" width="100px;" alt="KeisukeYamashita"/><br /><sub><b>KeisukeYamashita</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=KeisukeYamashita" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/codesculpture"><img src="https://avatars.githubusercontent.com/u/63452117?v=4?s=100" width="100px;" alt="Aravind"/><br /><sub><b>Aravind</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=codesculpture" title="Code">💻</a> <a href="https://github.com/tj-actions/changed-files/issues?q=author%3Acodesculpture" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://lukaspfahler.de"><img src="https://avatars.githubusercontent.com/u/2308119?v=4?s=100" width="100px;" alt="Lukas Pfahler"/><br /><sub><b>Lukas Pfahler</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=Whadup" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/RajendraP"><img src="https://avatars.githubusercontent.com/u/8928165?v=4?s=100" width="100px;" alt="Rajendra Pandey"/><br /><sub><b>Rajendra Pandey</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=RajendraP" title="Documentation">📖</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://undefined.moe/"><img src="https://avatars.githubusercontent.com/u/29992205?v=4?s=100" width="100px;" alt="undefined"/><br /><sub><b>undefined</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=undefined-moe" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Jellyfrog"><img src="https://avatars.githubusercontent.com/u/759887?v=4?s=100" width="100px;" alt="Jellyfrog"/><br /><sub><b>Jellyfrog</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=Jellyfrog" title="Code">💻</a> <a href="https://github.com/tj-actions/changed-files/commits?author=Jellyfrog" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://www.wolfplusplus.com/"><img src="https://avatars.githubusercontent.com/u/2318938?v=4?s=100" width="100px;" alt="Nelson Wolf"/><br /><sub><b>Nelson Wolf</b></sub></a><br /><a href="https://github.com/tj-actions/changed-files/commits?author=npwolf" title="Code">💻</a> <a href="https://github.com/tj-actions/changed-files/commits?author=npwolf" title="Tests">⚠️</a></td>
     </tr>
   </tbody>
 </table>
@@ -1366,3 +1472,17 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+***
+
+## 💼 Automate Your Job Search Too
+
+You automate your CI/CD. Automate your job applications too.
+
+**[ApplySmart AI](https://applysmart.ai)** helps you:
+
+*   Generate tailored resumes & cover letters in seconds
+*   Extract job details from any posting automatically
+*   Track applications like you track deployments
+
+**Free tier available** → [applysmart.ai](https://applysmart.ai)

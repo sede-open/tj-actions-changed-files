@@ -54,6 +54,13 @@ export type Inputs = {
   failOnSubmoduleDiffError: boolean
   negationPatternsFirst: boolean
   useRestApi: boolean
+  excludeSubmodules: boolean
+  excludeSymlinks: boolean
+  skipSameSha: boolean
+  fetchMissingHistoryMaxRetries?: number
+  usePosixPathSeparator: boolean
+  tagsPattern: string
+  tagsIgnorePattern?: string
 }
 
 export const getInputs = (): Inputs => {
@@ -240,6 +247,39 @@ export const getInputs = (): Inputs => {
     required: false
   })
 
+  const excludeSubmodules = core.getBooleanInput('exclude_submodules', {
+    required: false
+  })
+
+  const excludeSymlinks = core.getBooleanInput('exclude_symlinks', {
+    required: false
+  })
+
+  const skipSameSha = core.getBooleanInput('skip_same_sha', {
+    required: false
+  })
+
+  const fetchMissingHistoryMaxRetries = core.getInput(
+    'fetch_missing_history_max_retries',
+    {required: false}
+  )
+
+  const usePosixPathSeparator = core.getBooleanInput(
+    'use_posix_path_separator',
+    {
+      required: false
+    }
+  )
+
+  const tagsPattern = core.getInput('tags_pattern', {
+    required: false,
+    trimWhitespace: false
+  })
+  const tagsIgnorePattern = core.getInput('tags_ignore_pattern', {
+    required: false,
+    trimWhitespace: false
+  })
+
   const inputs: Inputs = {
     files,
     filesSeparator,
@@ -279,6 +319,12 @@ export const getInputs = (): Inputs => {
     skipInitialFetch,
     fetchAdditionalSubmoduleHistory,
     dirNamesDeletedFilesIncludeOnlyDeletedDirs,
+    excludeSubmodules,
+    excludeSymlinks,
+    skipSameSha,
+    usePosixPathSeparator,
+    tagsPattern,
+    tagsIgnorePattern,
     // End Not Supported via REST API
     dirNames,
     dirNamesExcludeCurrentDir,
@@ -297,11 +343,20 @@ export const getInputs = (): Inputs => {
   }
 
   if (fetchDepth) {
+    // Fallback to at least 2 if the fetch_depth is less than 2
     inputs.fetchDepth = Math.max(parseInt(fetchDepth, 10), 2)
   }
 
   if (dirNamesMaxDepth) {
     inputs.dirNamesMaxDepth = parseInt(dirNamesMaxDepth, 10)
+  }
+
+  if (fetchMissingHistoryMaxRetries) {
+    // Fallback to at least 1 if the fetch_missing_history_max_retries is less than 1
+    inputs.fetchMissingHistoryMaxRetries = Math.max(
+      parseInt(fetchMissingHistoryMaxRetries, 10),
+      1
+    )
   }
 
   return inputs

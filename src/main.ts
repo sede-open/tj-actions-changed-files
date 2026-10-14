@@ -5,8 +5,10 @@ import {
   processChangedFiles,
   ChangeTypeEnum,
   getAllDiffFiles,
+  filterSymlinksFromChangedFiles,
   getChangedFilesFromGithubAPI,
-  getRenamedFiles
+  getRenamedFiles,
+  ChangedFiles
 } from './changedFiles'
 import {
   DiffResult,
@@ -64,14 +66,26 @@ const getChangedFilesFromLocalGitHistory = async ({
   }
 
   const isShallow = await isRepoShallow({cwd: workingDirectory})
-  const hasSubmodule = await submoduleExists({cwd: workingDirectory})
-  let gitFetchExtraArgs = ['--no-tags', '--prune', '--recurse-submodules']
+  let diffSubmodule = false
+  let gitFetchExtraArgs = ['--no-tags', '--prune']
+
+  if (inputs.excludeSubmodules) {
+    core.info('Excluding submodules from the diff')
+  } else {
+    diffSubmodule = await submoduleExists({cwd: workingDirectory})
+  }
+
+  if (diffSubmodule) {
+    gitFetchExtraArgs.push('--recurse-submodules')
+  }
+
   const isTag = env.GITHUB_REF?.startsWith('refs/tags/')
+  const remoteName = 'origin'
   const outputRenamedFilesAsDeletedAndAdded =
     inputs.outputRenamedFilesAsDeletedAndAdded
   let submodulePaths: string[] = []
 
-  if (hasSubmodule) {
+  if (diffSubmodule) {
     submodulePaths = await getSubmodulePath({cwd: workingDirectory})
   }
 
@@ -83,29 +97,30 @@ const getChangedFilesFromLocalGitHistory = async ({
 
   if (!github.context.payload.pull_request?.base?.ref) {
     core.info(`Running on a ${github.context.eventName || 'push'} event...`)
-    diffResult = await getSHAForNonPullRequestEvent(
+    diffResult = await getSHAForNonPullRequestEvent({
       inputs,
       env,
       workingDirectory,
       isShallow,
-      hasSubmodule,
+      diffSubmodule,
       gitFetchExtraArgs,
-      isTag
-    )
+      isTag,
+      remoteName
+    })
   } else {
     core.info(
       `Running on a ${github.context.eventName || 'pull_request'} (${
         github.context.payload.action
       }) event...`
     )
-    diffResult = await getSHAForPullRequestEvent(
+    diffResult = await getSHAForPullRequestEvent({
       inputs,
-      env,
       workingDirectory,
       isShallow,
-      hasSubmodule,
-      gitFetchExtraArgs
-    )
+      diffSubmodule,
+      gitFetchExtraArgs,
+      remoteName
+    })
   }
 
   if (diffResult.initialCommit) {
@@ -114,20 +129,78 @@ const getChangedFilesFromLocalGitHistory = async ({
     return
   }
 
+  if (diffResult.sameSha) {
+    core.info('Base and head SHAs are identical; no changed files to report.')
+    const emptyChangedFiles: ChangedFiles = {
+      [ChangeTypeEnum.Added]: [],
+      [ChangeTypeEnum.Copied]: [],
+      [ChangeTypeEnum.Deleted]: [],
+      [ChangeTypeEnum.Modified]: [],
+      [ChangeTypeEnum.Renamed]: [],
+      [ChangeTypeEnum.TypeChanged]: [],
+      [ChangeTypeEnum.Unmerged]: [],
+      [ChangeTypeEnum.Unknown]: []
+    }
+    await processChangedFiles({
+      filePatterns,
+      allDiffFiles: emptyChangedFiles,
+      inputs,
+      yamlFilePatterns,
+      workingDirectory
+    })
+
+    if (inputs.includeAllOldNewRenamedFiles) {
+      await setOutput({
+        key: 'all_old_new_renamed_files',
+        value: inputs.json ? [] : '',
+        writeOutputFiles: inputs.writeOutputFiles,
+        outputDir: inputs.outputDir,
+        json: inputs.json,
+        safeOutput: inputs.safeOutput
+      })
+      await setOutput({
+        key: 'all_old_new_renamed_files_count',
+        value: '0',
+        writeOutputFiles: inputs.writeOutputFiles,
+        outputDir: inputs.outputDir,
+        json: inputs.json
+      })
+    }
+    core.info('All Done!')
+    core.endGroup()
+    return
+  }
+
   core.info(
     `Retrieving changes between ${diffResult.previousSha} (${diffResult.targetBranch}) → ${diffResult.currentSha} (${diffResult.currentBranch})`
   )
 
-  const allDiffFiles = await getAllDiffFiles({
+  const submoduleShas: Record<
+    string,
+    {previousSha?: string; currentSha?: string}
+  > = {}
+  let allDiffFiles = await getAllDiffFiles({
     workingDirectory,
-    hasSubmodule,
+    diffSubmodule,
     diffResult,
     submodulePaths,
     outputRenamedFilesAsDeletedAndAdded,
     fetchAdditionalSubmoduleHistory: inputs.fetchAdditionalSubmoduleHistory,
     failOnInitialDiffError: inputs.failOnInitialDiffError,
-    failOnSubmoduleDiffError: inputs.failOnSubmoduleDiffError
+    failOnSubmoduleDiffError: inputs.failOnSubmoduleDiffError,
+    submoduleShas
   })
+
+  if (inputs.excludeSymlinks) {
+    core.info('Excluding symlinks from the diff')
+    allDiffFiles = await filterSymlinksFromChangedFiles({
+      changedFiles: allDiffFiles,
+      workingDirectory,
+      diffResult,
+      submodulePaths,
+      submoduleShas
+    })
+  }
   core.debug(`All diff files: ${JSON.stringify(allDiffFiles)}`)
   core.info('All Done!')
   core.endGroup()
@@ -146,7 +219,7 @@ const getChangedFilesFromLocalGitHistory = async ({
       deletedFiles: allDiffFiles[ChangeTypeEnum.Deleted],
       recoverPatterns,
       diffResult,
-      hasSubmodule,
+      diffSubmodule,
       submodulePaths
     })
   }
@@ -164,7 +237,7 @@ const getChangedFilesFromLocalGitHistory = async ({
     const allOldNewRenamedFiles = await getRenamedFiles({
       inputs,
       workingDirectory,
-      hasSubmodule,
+      diffSubmodule,
       diffResult,
       submodulePaths
     })
@@ -221,8 +294,6 @@ export async function run(): Promise<void> {
   const inputs = getInputs()
   core.debug(`Inputs: ${JSON.stringify(inputs, null, 2)}`)
 
-  core.debug(`Github Context: ${JSON.stringify(github.context, null, 2)}`)
-
   const workingDirectory = path.resolve(
     env.GITHUB_WORKSPACE || process.cwd(),
     inputs.useRestApi ? '.' : inputs.path
@@ -244,15 +315,20 @@ export async function run(): Promise<void> {
   })
   core.debug(`Yaml file patterns: ${JSON.stringify(yamlFilePatterns)}`)
 
-  if (inputs.useRestApi && !github.context.payload.pull_request?.number) {
+  const isRestApiSupportedEvent =
+    !!github.context.payload.pull_request?.number ||
+    github.context.eventName === 'push' ||
+    github.context.eventName === 'merge_group'
+
+  if (inputs.useRestApi && !isRestApiSupportedEvent) {
     throw new Error(
-      "Only pull_request* events are supported when using GitHub's REST API."
+      `Event "${github.context.eventName}" is not supported when using GitHub's REST API. Supported events: pull_request*, push, merge_group.`
     )
   }
 
   if (
     inputs.token &&
-    github.context.payload.pull_request?.number &&
+    isRestApiSupportedEvent &&
     (!hasGitDirectory || inputs.useRestApi)
   ) {
     core.info("Using GitHub's REST API to get changed files")
@@ -265,7 +341,7 @@ export async function run(): Promise<void> {
   } else {
     if (!hasGitDirectory) {
       throw new Error(
-        `Unable to locate the git repository in the given path: ${workingDirectory}.\n Please run actions/checkout before this action (Make sure the 'path' input is correct).\n If you intend to use Github's REST API note that only pull_request* events are supported. Current event is "${github.context.eventName}".`
+        `Unable to locate the git repository in the given path: ${workingDirectory}.\n Please run actions/checkout before this action (Make sure the 'path' input is correct).\n If you intend to use Github's REST API note that pull_request*, push, and merge_group events are supported. Current event is "${github.context.eventName}".`
       )
     }
 
@@ -280,11 +356,8 @@ export async function run(): Promise<void> {
   }
 }
 
-/* istanbul ignore if */
-if (!process.env.TESTING) {
-  // eslint-disable-next-line github/no-then
-  run().catch(e => {
-    core.setFailed(e.message || e)
-    process.exit(1)
-  })
-}
+// eslint-disable-next-line github/no-then
+run().catch(e => {
+  core.setFailed(e.message || e)
+  process.exit(1)
+})
